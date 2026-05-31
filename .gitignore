@@ -5,6 +5,9 @@
 tools/questions_raw.json
 tools/questions_clean.json
 
+# Lokaler Mock-Speicher des Dev-Sync-Servers (nur zum Testen)
+tools/.mock/
+
 # Diverses
 *.log
 .DS_Store

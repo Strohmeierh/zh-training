@@ -22,6 +22,7 @@
   function saveState() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
     catch (e) { /* Speicher evtl. voll/blockiert */ }
+    scheduleSyncPush(); // bei aktivem Sync den Stand (debounced) hochladen
   }
   function statFor(id) {
     if (!state.stats[id]) {
@@ -324,28 +325,34 @@
     if (!st || typeof st.stats !== 'object') throw new Error('Keine gültigen Fortschrittsdaten gefunden.');
     return st;
   }
+  // Reine Merge-Funktion: pro Frage gewinnt der zuletzt bearbeitete Stand,
+  // Zähler = Max, markiert = ODER. Genutzt von Import und Auto-Sync.
+  function mergeStats(localStats, otherStats) {
+    var ids = {}, merged = {};
+    Object.keys(localStats || {}).forEach(function (k) { ids[k] = 1; });
+    Object.keys(otherStats || {}).forEach(function (k) { ids[k] = 1; });
+    Object.keys(ids).forEach(function (id) {
+      var a = localStats[id], b = otherStats[id];
+      if (!a) { merged[id] = b; return; }
+      if (!b) { merged[id] = a; return; }
+      var newer = (b.zuletzt || 0) >= (a.zuletzt || 0) ? b : a;
+      merged[id] = {
+        gesehen: Math.max(a.gesehen || 0, b.gesehen || 0),
+        richtig: Math.max(a.richtig || 0, b.richtig || 0),
+        falsch: Math.max(a.falsch || 0, b.falsch || 0),
+        markiert: !!(a.markiert || b.markiert),
+        letztesErgebnis: newer.letztesErgebnis,
+        zuletzt: Math.max(a.zuletzt || 0, b.zuletzt || 0)
+      };
+    });
+    return merged;
+  }
+
   function applyImport(incoming, mode) {
     if (mode === 'replace') {
       state = { version: 1, stats: incoming.stats };
-    } else { // zusammenführen: pro Frage gewinnt der zuletzt bearbeitete Stand
-      var ids = {}, merged = {};
-      Object.keys(state.stats).forEach(function (k) { ids[k] = 1; });
-      Object.keys(incoming.stats).forEach(function (k) { ids[k] = 1; });
-      Object.keys(ids).forEach(function (id) {
-        var a = state.stats[id], b = incoming.stats[id];
-        if (!a) { merged[id] = b; return; }
-        if (!b) { merged[id] = a; return; }
-        var newer = (b.zuletzt || 0) >= (a.zuletzt || 0) ? b : a;
-        merged[id] = {
-          gesehen: Math.max(a.gesehen || 0, b.gesehen || 0),
-          richtig: Math.max(a.richtig || 0, b.richtig || 0),
-          falsch: Math.max(a.falsch || 0, b.falsch || 0),
-          markiert: !!(a.markiert || b.markiert),
-          letztesErgebnis: newer.letztesErgebnis,
-          zuletzt: Math.max(a.zuletzt || 0, b.zuletzt || 0)
-        };
-      });
-      state = { version: 1, stats: merged };
+    } else {
+      state = { version: 1, stats: mergeStats(state.stats, incoming.stats) };
     }
     saveState();
     updateOverview();
@@ -397,6 +404,190 @@
     } else {
       run($('#import-code').value);
     }
+  }
+
+  // ---------- Automatische Synchronisation (Cloudflare Worker) ----------
+  var SYNC_KEY = 'zh-gkt-sync';
+  var syncCfg = null;          // { url, code } oder null
+  var lastSyncAt = 0;
+  var syncInFlight = false, syncQueued = false;
+  var pushTimer = null, lastTrigger = 0;
+
+  function loadSyncCfg() {
+    try {
+      var raw = localStorage.getItem(SYNC_KEY);
+      if (raw) { var c = JSON.parse(raw); if (c && c.url && c.code) return c; }
+    } catch (e) { /* ignorieren */ }
+    return null;
+  }
+  function saveSyncCfg(url, code) {
+    syncCfg = { url: url, code: code };
+    try { localStorage.setItem(SYNC_KEY, JSON.stringify(syncCfg)); } catch (e) { }
+  }
+  function clearSyncCfg() {
+    syncCfg = null;
+    try { localStorage.removeItem(SYNC_KEY); } catch (e) { }
+  }
+
+  function b64urlEncode(str) {
+    return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function b64urlDecode(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '=';
+    return decodeURIComponent(escape(atob(s)));
+  }
+  function generateCode() {
+    var bytes = new Uint8Array(18);
+    (window.crypto || window.msCrypto).getRandomValues(bytes);
+    var s = ''; for (var i = 0; i < bytes.length; i++) s += ('0' + bytes[i].toString(16)).slice(-2);
+    return s; // 36 Hex-Zeichen
+  }
+  function normalizeUrl(u) {
+    u = (u || '').trim();
+    if (!u) return '';
+    if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+    try { var x = new URL(u); return x.origin + x.pathname.replace(/\/$/, ''); } catch (e) { return ''; }
+  }
+  function appBaseUrl() { return location.origin + location.pathname; }
+  function connectLink() {
+    if (!syncCfg) return '';
+    return appBaseUrl() + '#sync=' + b64urlEncode(JSON.stringify({ u: syncCfg.url, c: syncCfg.code }));
+  }
+  function syncUrl() { return syncCfg.url + '?code=' + encodeURIComponent(syncCfg.code); }
+
+  function fetchWithTimeout(url, opts, ms) {
+    opts = opts || {};
+    var ctrl = ('AbortController' in window) ? new AbortController() : null, t = null;
+    if (ctrl) { opts.signal = ctrl.signal; t = setTimeout(function () { try { ctrl.abort(); } catch (e) { } }, ms || 8000); }
+    var p = fetch(url, opts);
+    if (t) p = p.then(function (r) { clearTimeout(t); return r; }, function (e) { clearTimeout(t); throw e; });
+    return p;
+  }
+
+  function syncPull() {
+    return fetchWithTimeout(syncUrl(), { method: 'GET', cache: 'no-store' }, 8000)
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (obj) { return (obj && typeof obj.stats === 'object') ? obj : (obj === null ? null : { stats: {} }); })
+      .catch(function () { return null; });
+  }
+  function syncPush() {
+    var body = JSON.stringify({ stats: state.stats, updatedAt: Date.now() });
+    return fetchWithTimeout(syncUrl(), { method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: body }, 8000)
+      .then(function (r) { return r.ok; })
+      .catch(function () { return false; });
+  }
+
+  function syncNow() {
+    if (!syncCfg) return;
+    if (syncInFlight) { syncQueued = true; return; }
+    syncInFlight = true;
+    setSyncStatus('Synchronisiere …', 'busy');
+    syncPull().then(function (remote) {
+      if (remote && remote.stats) {
+        state = { version: 1, stats: mergeStats(state.stats, remote.stats) };
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { }
+        updateOverview(); updatePoolInfo();
+      }
+      return syncPush().then(function (okPush) {
+        if (okPush) { lastSyncAt = Date.now(); setSyncStatus('Synchronisiert ✓', 'ok'); }
+        else setSyncStatus('Offline – lokal gespeichert', 'warn');
+      });
+    }).catch(function () {
+      setSyncStatus('Offline – lokal gespeichert', 'warn');
+    }).then(function () {
+      syncInFlight = false;
+      if (syncQueued) { syncQueued = false; setTimeout(syncNow, 50); }
+    });
+  }
+  function scheduleSyncPush() {
+    if (!syncCfg) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(syncNow, 2000);
+  }
+  function throttledSync() {
+    if (!syncCfg) return;
+    var now = Date.now();
+    if (now - lastTrigger < 8000) return;
+    lastTrigger = now;
+    syncNow();
+  }
+  function syncBeacon() {
+    if (!syncCfg || !navigator.sendBeacon) return;
+    try {
+      var body = JSON.stringify({ stats: state.stats, updatedAt: Date.now() });
+      navigator.sendBeacon(syncUrl(), new Blob([body], { type: 'text/plain' }));
+    } catch (e) { }
+  }
+
+  // -- Sync-UI --
+  function setSyncStatus(text, kind) {
+    var el = $('#sync-status');
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'sync-status ' + (kind || 'idle');
+  }
+  function renderSyncUI() {
+    var on = !!syncCfg;
+    $('#sync-setup').classList.toggle('hidden', on);
+    $('#sync-active').classList.toggle('hidden', !on);
+    if (on) {
+      $('#sync-link').value = connectLink();
+      if (!lastSyncAt) setSyncStatus('Bereit – wird beim Öffnen abgeglichen', 'idle');
+    } else {
+      setSyncStatus('Nicht eingerichtet', 'idle');
+    }
+  }
+  function doSyncActivate() {
+    var url = normalizeUrl($('#sync-url').value);
+    if (!url) { $('#sync-msg').textContent = '⚠ Bitte eine gültige Worker-URL eingeben (z. B. https://…workers.dev).'; return; }
+    var code = (syncCfg && syncCfg.code) ? syncCfg.code : generateCode();
+    saveSyncCfg(url, code);
+    $('#sync-msg').textContent = '';
+    renderSyncUI();
+    syncNow();
+  }
+  function doSyncDisconnect() {
+    if (!confirm('Automatische Synchronisation auf diesem Gerät trennen? Dein lokaler Fortschritt bleibt erhalten.')) return;
+    clearSyncCfg();
+    lastSyncAt = 0;
+    renderSyncUI();
+  }
+  function doCopyLink() {
+    var ta = $('#sync-link');
+    ta.focus(); ta.select();
+    var ok = function () { $('#sync-msg').textContent = 'Link kopiert – einmal auf dem iPhone öffnen, dann synchronisiert es automatisch.'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(ok, function () { try { document.execCommand('copy'); ok(); } catch (e) { } });
+    } else { try { document.execCommand('copy'); ok(); } catch (e) { } }
+  }
+  function handleSyncHash() {
+    var m = (location.hash || '').match(/^#sync=(.+)$/);
+    if (!m) return false;
+    try {
+      var obj = JSON.parse(b64urlDecode(m[1]));
+      if (obj && obj.u && obj.c) {
+        saveSyncCfg(normalizeUrl(obj.u), obj.c);
+        history.replaceState(null, '', appBaseUrl());
+        return true;
+      }
+    } catch (e) { }
+    return false;
+  }
+  function bindSyncControls() {
+    $('#btn-sync-activate').addEventListener('click', doSyncActivate);
+    $('#btn-sync-copylink').addEventListener('click', doCopyLink);
+    $('#btn-sync-now').addEventListener('click', function () { if (syncCfg) syncNow(); });
+    $('#btn-sync-disconnect').addEventListener('click', doSyncDisconnect);
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') throttledSync(); });
+    window.addEventListener('focus', throttledSync);
+    window.addEventListener('pagehide', syncBeacon);
+  }
+  function initSync() {
+    handleSyncHash();          // evtl. Konfig aus #sync=… übernehmen
+    syncCfg = loadSyncCfg();
+    bindSyncControls();
+    renderSyncUI();
+    if (syncCfg) syncNow();    // Erst-Abgleich beim Laden
   }
 
   // ---------- Event-Bindings ----------
@@ -478,6 +669,7 @@
     updateOverview();
     updatePoolInfo();
     show('#screen-start');
+    initSync();
   }
 
   document.addEventListener('DOMContentLoaded', init);

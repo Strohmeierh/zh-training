@@ -19,8 +19,11 @@ es ist kein Server, Login oder Internet (nach dem Laden) nötig.
 - **Sofortiges Feedback** mit Hervorhebung der richtigen Antwort.
 - **Fortschritt** wird automatisch gespeichert (`localStorage`) und übersteht das
   Schliessen des Browsers. Mit einem Klick zurücksetzbar.
-- **Geräte-Abgleich (Export/Import):** Fortschritt als Code oder Datei exportieren
-  und auf einem anderen Gerät wieder importieren (zusammenführen oder ersetzen).
+- **Automatischer Geräte-Abgleich (optional):** Mit einem eigenen, kostenlosen
+  Cloudflare-Worker ist der Fortschritt automatisch auf allen Geräten aktuell –
+  Einrichtung siehe [`SYNC-SETUP.md`](SYNC-SETUP.md).
+- **Manueller Geräte-Abgleich (Backup):** Fortschritt als Code oder Datei
+  exportieren und auf einem anderen Gerät importieren (zusammenführen/ersetzen).
 
 ## Benutzung
 
@@ -33,8 +36,12 @@ Die Seite ist komplett statisch und kommt ohne Build-Schritt aus.
 `index.html` einfach im Browser öffnen (Doppelklick).
 
 ### Fortschritt zwischen Geräten abgleichen
-Der Fortschritt liegt im `localStorage` und ist damit **pro Gerät/Browser getrennt**
-(es gibt keinen Server). Zum Abgleich, z. B. zwischen Laptop und iPhone:
+
+**Automatisch (empfohlen):** einmalig einen kostenlosen Cloudflare-Worker
+einrichten – Schritt-für-Schritt in [`SYNC-SETUP.md`](SYNC-SETUP.md). Danach ist
+der Stand auf allen Geräten automatisch aktuell.
+
+**Manuell (Backup, ohne Einrichtung):**
 
 1. Auf Gerät A unter **„Daten & Geräte-Abgleich" → „Fortschritt exportieren"** den
    Code kopieren (oder als Datei speichern).
@@ -43,7 +50,7 @@ Der Fortschritt liegt im `localStorage` und ist damit **pro Gerät/Browser getre
    **„Zusammenführen"** (oder „Ersetzen") wählen.
 
 Beim Zusammenführen gewinnt pro Frage der zuletzt bearbeitete Stand; Markierungen
-gehen nie verloren.
+gehen nie verloren. Dieselbe Merge-Logik nutzt auch der automatische Abgleich.
 
 ## Aufbau
 

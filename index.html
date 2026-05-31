@@ -60,8 +60,37 @@
 
       <div class="card">
         <h2>Daten &amp; Geräte-Abgleich</h2>
-        <p class="muted">Dein Fortschritt wird lokal im Browser gespeichert – also pro Gerät getrennt. Für den Abgleich zwischen Laptop und iPhone exportierst du ihn hier und importierst ihn auf dem anderen Gerät.</p>
 
+        <!-- Automatische Synchronisation -->
+        <h3 class="sub-h">Automatische Synchronisation
+          <span id="sync-status" class="sync-status idle">Nicht eingerichtet</span>
+        </h3>
+        <p class="muted">Gleicht deinen Fortschritt automatisch zwischen allen Geräten ab (z. B. Laptop und iPhone). Einmalige Einrichtung über einen eigenen Gratis-Speicher – Anleitung: <a href="SYNC-SETUP.md" target="_blank" rel="noopener">SYNC-SETUP.md</a>.</p>
+
+        <div id="sync-setup">
+          <label class="field-label" for="sync-url">Worker-URL (von Cloudflare)</label>
+          <input id="sync-url" type="url" class="io-text" placeholder="https://zh-sync.dein-name.workers.dev" inputmode="url" autocomplete="off">
+          <div class="data-actions">
+            <button id="btn-sync-activate" class="btn btn-primary">Aktivieren</button>
+          </div>
+        </div>
+
+        <div id="sync-active" class="hidden">
+          <label class="field-label" for="sync-link">Verbindungs-Link – einmal auf dem anderen Gerät öffnen</label>
+          <textarea id="sync-link" class="io-text" rows="3" readonly></textarea>
+          <div class="data-actions">
+            <button id="btn-sync-copylink" class="btn btn-secondary">Link kopieren</button>
+            <button id="btn-sync-now" class="btn btn-secondary">Jetzt synchronisieren</button>
+            <button id="btn-sync-disconnect" class="btn btn-secondary">Trennen</button>
+          </div>
+        </div>
+        <p id="sync-msg" class="muted"></p>
+
+        <hr class="divider">
+
+        <!-- Manueller Abgleich (Backup) -->
+        <h3 class="sub-h">Manuell – Export / Import (Backup)</h3>
+        <p class="muted">Funktioniert auch ohne Einrichtung: Fortschritt als Code/Datei exportieren und auf dem anderen Gerät importieren.</p>
         <div class="data-actions">
           <button id="btn-export" class="btn btn-secondary">Fortschritt exportieren</button>
           <button id="btn-import-toggle" class="btn btn-secondary">Fortschritt importieren</button>

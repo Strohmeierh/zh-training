@@ -156,6 +156,26 @@ body {
 }
 .io-file { display: block; margin-top: 4px; font-size: .9rem; max-width: 100%; }
 .divider { border: none; border-top: 1px solid var(--border); margin: 18px 0 14px; }
+.sub-h {
+  font-size: .98rem;
+  margin: 4px 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sync-status {
+  font-size: .72rem;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.sync-status.idle { background: #eef0f3; color: var(--muted); }
+.sync-status.ok   { background: var(--green-bg); color: var(--green); }
+.sync-status.busy { background: #fff4e0; color: #b9770e; }
+.sync-status.warn { background: #fdeaea; color: var(--red); }
+input.io-text { font-family: inherit; font-size: .92rem; }
 
 /* ---- Quiz ---- */
 .quiz-head {
