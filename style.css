@@ -176,6 +176,7 @@ body {
 .sync-status.busy { background: #fff4e0; color: #b9770e; }
 .sync-status.warn { background: #fdeaea; color: var(--red); }
 input.io-text { font-family: inherit; font-size: .92rem; }
+.lbl-normal { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); }
 
 /* ---- Quiz ---- */
 .quiz-head {

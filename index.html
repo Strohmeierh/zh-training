@@ -70,13 +70,20 @@
         <div id="sync-setup">
           <label class="field-label" for="sync-url">Worker-URL (von Cloudflare)</label>
           <input id="sync-url" type="url" class="io-text" placeholder="https://zh-sync.dein-name.workers.dev" inputmode="url" autocomplete="off">
+          <label class="field-label" for="sync-code-in">Sync-Code <span class="lbl-normal">– nur ausfüllen, wenn du dieses Gerät mit einem bereits eingerichteten verbinden willst (Code vom ersten Gerät einfügen). Sonst leer lassen.</span></label>
+          <input id="sync-code-in" type="text" class="io-text" placeholder="(leer lassen für ein neues Konto)" autocomplete="off" autocapitalize="off" spellcheck="false">
           <div class="data-actions">
             <button id="btn-sync-activate" class="btn btn-primary">Aktivieren</button>
           </div>
         </div>
 
         <div id="sync-active" class="hidden">
-          <label class="field-label" for="sync-link">Verbindungs-Link – einmal auf dem anderen Gerät öffnen</label>
+          <label class="field-label" for="sync-code-out">Dein Sync-Code – auf jedem Gerät <b>derselbe</b> (mit gleicher Worker-URL)</label>
+          <textarea id="sync-code-out" class="io-text" rows="2" readonly></textarea>
+          <div class="data-actions">
+            <button id="btn-sync-copycode" class="btn btn-secondary">Code kopieren</button>
+          </div>
+          <label class="field-label" for="sync-link">Oder: Verbindungs-Link – auf dem anderen Gerät in <b>demselben</b> Browser öffnen</label>
           <textarea id="sync-link" class="io-text" rows="3" readonly></textarea>
           <div class="data-actions">
             <button id="btn-sync-copylink" class="btn btn-secondary">Link kopieren</button>

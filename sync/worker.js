@@ -53,13 +53,29 @@ export default {
       const body = await request.text();
       if (body.length > MAX_BODY) return json({ error: 'payload too large' }, 413);
       // Nur gültiges JSON mit stats-Objekt akzeptieren.
+      let incoming;
       try {
-        const obj = JSON.parse(body);
-        if (!obj || typeof obj.stats !== 'object' || obj.stats === null) {
+        incoming = JSON.parse(body);
+        if (!incoming || typeof incoming.stats !== 'object' || incoming.stats === null) {
           return json({ error: 'invalid payload' }, 400);
         }
       } catch (e) {
         return json({ error: 'invalid json' }, 400);
+      }
+      // Schutz vor Datenverlust: einen LEEREN Stand niemals über einen bereits
+      // vorhandenen, NICHT leeren Stand schreiben – ausser bei ?force=1
+      // (bewusstes Zurücksetzen). So kann ein „leeres" Gerät volle Daten nicht löschen.
+      const force = url.searchParams.get('force') === '1';
+      if (!force && Object.keys(incoming.stats).length === 0) {
+        const existing = await env.KV.get(key);
+        if (existing) {
+          try {
+            const old = JSON.parse(existing);
+            if (old && old.stats && Object.keys(old.stats).length > 0) {
+              return json({ ok: true, kept: true }); // vorhandene Daten behalten
+            }
+          } catch (e) { /* alten Wert ignorieren */ }
+        }
       }
       await env.KV.put(key, body);
       return json({ ok: true, savedAt: Date.now() });

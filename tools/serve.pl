@@ -44,6 +44,16 @@ sub handle_mock {
     if (-f $file) { open(my $fh,'<:raw',$file); local $/; $data = <$fh>; close $fh; }
     send_json($c, '200 OK', $data);
   } elsif ($method eq 'PUT' || $method eq 'POST') {
+    # Schutz wie im echten Worker: leeren Stand nicht über vorhandene Daten
+    # schreiben (ausser ?force=1).
+    my $force = ($rawpath =~ /[?&]force=1\b/) ? 1 : 0;
+    my $incoming_empty = ($body =~ /"stats"\s*:\s*\{\s*\}/) ? 1 : 0;
+    if (!$force && $incoming_empty && -f $file) {
+      open(my $in,'<:raw',$file); local $/; my $old = <$in>; close $in;
+      if (defined $old && $old !~ /"stats"\s*:\s*\{\s*\}/ && $old =~ /"stats"/) {
+        send_json($c, '200 OK', '{"ok":true,"kept":true}'); return;
+      }
+    }
     open(my $fh,'>:raw',$file) or do { send_json($c,'500 Error','{"error":"write"}'); return; };
     print $fh $body; close $fh;
     send_json($c, '200 OK', '{"ok":true}');

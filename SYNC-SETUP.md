@@ -49,10 +49,27 @@ Du richtest ihn **einmal** ein – danach läuft alles automatisch.
 
 ## Schritt 6 – iPhone (und weitere Geräte) verbinden
 
-1. Auf dem Laptop in der App **„Link kopieren"** klicken (Verbindungs-Link).
-2. Diesen Link **einmal aufs iPhone** bringen (z. B. AirDrop, Nachricht oder
-   E-Mail an dich selbst) und **auf dem iPhone öffnen**.
-3. Die App übernimmt die Verbindung automatisch – ab jetzt ist alles synchron.
+> **Wichtig:** Beide Geräte müssen **dieselbe Worker-URL UND denselben Sync-Code**
+> verwenden. Sonst hat jedes Gerät ein eigenes, getrenntes „Konto" – beide zeigen
+> dann zwar „Synchronisiert ✓", teilen aber keine Daten.
+
+**Empfohlen (zuverlässig) – mit dem Sync-Code:**
+
+1. Auf dem **Laptop** in der App den **Sync-Code** anzeigen lassen
+   (unter „Automatische Synchronisation") und **„Code kopieren"**.
+2. Code (und die Worker-URL) aufs iPhone bringen (Nachricht/E-Mail an dich selbst).
+3. Auf dem **iPhone** die App öffnen → **Worker-URL** einfügen → **Sync-Code** in das
+   Feld „Sync-Code" einfügen → **„Aktivieren"**. Fertig – beide Geräte teilen jetzt
+   denselben Stand.
+
+**Alternativ – mit Verbindungs-Link:** Auf dem Laptop **„Link kopieren"**, den Link
+aufs iPhone bringen und dort öffnen. Öffne ihn **im selben Browser**, in dem du auch
+lernst (am iPhone am besten den Link in Safari einfügen und öffnen – nicht nur in der
+Vorschau einer Nachrichten-App), sonst landet die Verbindung in einem anderen
+Browser-Speicher.
+
+> Prüfen, ob es geklappt hat: Auf **beiden** Geräten muss unter „Automatische
+> Synchronisation" **derselbe Sync-Code** stehen.
 
 ---
 

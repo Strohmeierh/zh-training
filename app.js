@@ -483,7 +483,13 @@
     syncInFlight = true;
     setSyncStatus('Synchronisiere …', 'busy');
     syncPull().then(function (remote) {
-      if (remote && remote.stats) {
+      // WICHTIG: Schlägt der Pull fehl (remote === null), NICHT pushen –
+      // sonst könnte ein leerer/alter lokaler Stand den Server überschreiben.
+      if (remote === null) {
+        setSyncStatus('Offline – lokal gespeichert', 'warn');
+        return;
+      }
+      if (remote.stats) {
         state = { version: 1, stats: mergeStats(state.stats, remote.stats) };
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { }
         updateOverview(); updatePoolInfo();
@@ -499,6 +505,13 @@
       if (syncQueued) { syncQueued = false; setTimeout(syncNow, 50); }
     });
   }
+  // Server gezielt leeren (nur beim bewussten Zurücksetzen mit aktivem Sync).
+  function syncForceClear() {
+    if (!syncCfg) return Promise.resolve(false);
+    var body = JSON.stringify({ stats: {}, updatedAt: Date.now() });
+    return fetchWithTimeout(syncUrl() + '&force=1', { method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: body }, 8000)
+      .then(function (r) { return r.ok; }).catch(function () { return false; });
+  }
   function scheduleSyncPush() {
     if (!syncCfg) return;
     clearTimeout(pushTimer);
@@ -513,6 +526,7 @@
   }
   function syncBeacon() {
     if (!syncCfg || !navigator.sendBeacon) return;
+    if (!state.stats || Object.keys(state.stats).length === 0) return; // nie einen leeren Stand senden
     try {
       var body = JSON.stringify({ stats: state.stats, updatedAt: Date.now() });
       navigator.sendBeacon(syncUrl(), new Blob([body], { type: 'text/plain' }));
@@ -532,6 +546,7 @@
     $('#sync-active').classList.toggle('hidden', !on);
     if (on) {
       $('#sync-link').value = connectLink();
+      if ($('#sync-code-out')) $('#sync-code-out').value = syncCfg.code;
       if (!lastSyncAt) setSyncStatus('Bereit – wird beim Öffnen abgeglichen', 'idle');
     } else {
       setSyncStatus('Nicht eingerichtet', 'idle');
@@ -540,11 +555,33 @@
   function doSyncActivate() {
     var url = normalizeUrl($('#sync-url').value);
     if (!url) { $('#sync-msg').textContent = '⚠ Bitte eine gültige Worker-URL eingeben (z. B. https://…workers.dev).'; return; }
-    var code = (syncCfg && syncCfg.code) ? syncCfg.code : generateCode();
+    var entered = ($('#sync-code-in') ? $('#sync-code-in').value : '').trim();
+    var code;
+    if (entered) {
+      if (!/^[A-Za-z0-9_-]{16,128}$/.test(entered)) {
+        $('#sync-msg').textContent = '⚠ Der eingegebene Sync-Code ist ungültig (mind. 16 Zeichen, nur Buchstaben/Ziffern/-/_).';
+        return;
+      }
+      code = entered;
+    } else if (syncCfg && syncCfg.code) {
+      code = syncCfg.code;
+    } else {
+      code = generateCode();
+    }
     saveSyncCfg(url, code);
+    if ($('#sync-code-in')) $('#sync-code-in').value = '';
     $('#sync-msg').textContent = '';
     renderSyncUI();
     syncNow();
+  }
+  function doCopyCode() {
+    var ta = $('#sync-code-out');
+    if (!ta) return;
+    ta.focus(); ta.select();
+    var ok = function () { $('#sync-msg').textContent = 'Sync-Code kopiert. Auf dem anderen Gerät dieselbe Worker-URL + diesen Code eingeben.'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(ok, function () { try { document.execCommand('copy'); ok(); } catch (e) { } });
+    } else { try { document.execCommand('copy'); ok(); } catch (e) { } }
   }
   function doSyncDisconnect() {
     if (!confirm('Automatische Synchronisation auf diesem Gerät trennen? Dein lokaler Fortschritt bleibt erhalten.')) return;
@@ -576,6 +613,7 @@
   function bindSyncControls() {
     $('#btn-sync-activate').addEventListener('click', doSyncActivate);
     $('#btn-sync-copylink').addEventListener('click', doCopyLink);
+    $('#btn-sync-copycode').addEventListener('click', doCopyCode);
     $('#btn-sync-now').addEventListener('click', function () { if (syncCfg) syncNow(); });
     $('#btn-sync-disconnect').addEventListener('click', doSyncDisconnect);
     document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') throttledSync(); });
@@ -612,11 +650,21 @@
     });
     $('#btn-start').addEventListener('click', buildSession);
     $('#btn-reset').addEventListener('click', function () {
-      if (confirm('Wirklich den gesamten Fortschritt löschen? Das kann nicht rückgängig gemacht werden.')) {
+      var msg = syncCfg
+        ? 'Wirklich den gesamten Fortschritt löschen – auf ALLEN synchronisierten Geräten? Das kann nicht rückgängig gemacht werden.'
+        : 'Wirklich den gesamten Fortschritt löschen? Das kann nicht rückgängig gemacht werden.';
+      if (confirm(msg)) {
         state = { version: 1, stats: {} };
-        saveState();
+        clearTimeout(pushTimer);                                  // ausstehenden Auto-Sync abbrechen
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { }
         updateOverview();
         updatePoolInfo();
+        if (syncCfg) {                                            // Server gezielt leeren, sonst füllt der nächste Sync wieder auf
+          setSyncStatus('Synchronisiere …', 'busy');
+          syncForceClear().then(function (ok) {
+            setSyncStatus(ok ? 'Synchronisiert ✓' : 'Offline – lokal gespeichert', ok ? 'ok' : 'warn');
+          });
+        }
       }
     });
   }
