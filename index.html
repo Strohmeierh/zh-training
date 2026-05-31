@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grundkenntnistest Kanton Zürich – Übung</title>
+  <meta name="description" content="Übungs-Tool für den Kantonalen Grundkenntnistest im Einbürgerungsverfahren (Zürich). Alle Fragen, Fortschritt wird gespeichert.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Grundkenntnistest&nbsp;Zürich</h1>
+    <p class="subtitle">Übung für den kantonalen Einbürgerungstest · 350 Fragen</p>
+  </header>
+
+  <main id="app">
+    <!-- ===== Startseite ===== -->
+    <section id="screen-start" class="screen">
+      <div class="card stats-overview">
+        <h2>Dein Fortschritt</h2>
+        <div class="stat-grid">
+          <div class="stat"><span id="stat-seen" class="stat-num">0</span><span class="stat-label">beantwortet</span></div>
+          <div class="stat"><span id="stat-mastered" class="stat-num">0</span><span class="stat-label">sicher</span></div>
+          <div class="stat"><span id="stat-wrong" class="stat-num">0</span><span class="stat-label">offen/falsch</span></div>
+          <div class="stat"><span id="stat-marked" class="stat-num">0</span><span class="stat-label">markiert ★</span></div>
+        </div>
+        <div class="progress-outer" title="Anteil sicher beantworteter Fragen">
+          <div id="overall-progress" class="progress-inner"></div>
+        </div>
+        <p class="muted" id="overall-progress-text">0 von 350 Fragen sicher beantwortet</p>
+      </div>
+
+      <div class="card">
+        <h2>Neues Fragenpaket starten</h2>
+
+        <label class="field-label">Modus</label>
+        <div id="mode-buttons" class="choice-row">
+          <button class="choice active" data-mode="all">Alle Fragen</button>
+          <button class="choice" data-mode="hard">Nur schwierige ★/✗</button>
+          <button class="choice" data-mode="wrong">Nur falsch beantwortete</button>
+          <button class="choice" data-mode="unseen">Noch nicht gesehen</button>
+        </div>
+
+        <label class="field-label">Thema (optional)</label>
+        <select id="theme-select" class="select">
+          <option value="">Alle Themen</option>
+        </select>
+
+        <label class="field-label">Anzahl Fragen</label>
+        <div id="size-buttons" class="choice-row">
+          <button class="choice" data-size="10">10</button>
+          <button class="choice active" data-size="20">20</button>
+          <button class="choice" data-size="50">50</button>
+          <button class="choice" data-size="all">Alle</button>
+        </div>
+
+        <p class="muted" id="pool-info"></p>
+        <button id="btn-start" class="btn btn-primary btn-block">Übung starten</button>
+      </div>
+
+      <div class="card">
+        <h2>Daten</h2>
+        <p class="muted">Dein Fortschritt wird nur lokal in diesem Browser gespeichert.</p>
+        <button id="btn-reset" class="btn btn-danger">Fortschritt zurücksetzen</button>
+      </div>
+    </section>
+
+    <!-- ===== Quiz ===== -->
+    <section id="screen-quiz" class="screen hidden">
+      <div class="quiz-head">
+        <button id="btn-quit" class="btn btn-ghost">← Beenden</button>
+        <span id="quiz-counter" class="muted">Frage 1 / 20</span>
+        <button id="btn-mark" class="star-btn" title="Als schwierig markieren">☆</button>
+      </div>
+      <div class="progress-outer thin"><div id="quiz-progress" class="progress-inner"></div></div>
+
+      <div class="card question-card">
+        <p class="q-meta"><span id="q-theme" class="pill"></span></p>
+        <h2 id="q-text" class="q-text"></h2>
+        <div id="q-options" class="options"></div>
+        <div id="q-feedback" class="feedback hidden"></div>
+      </div>
+
+      <button id="btn-next" class="btn btn-primary btn-block hidden">Weiter</button>
+    </section>
+
+    <!-- ===== Ergebnis ===== -->
+    <section id="screen-result" class="screen hidden">
+      <div class="card result-card">
+        <h2>Paket abgeschlossen</h2>
+        <p id="result-score" class="result-score"></p>
+        <div class="progress-outer"><div id="result-progress" class="progress-inner"></div></div>
+        <div id="result-wrong-list"></div>
+        <div class="result-actions">
+          <button id="btn-retry-wrong" class="btn btn-primary">Falsche wiederholen</button>
+          <button id="btn-back-start" class="btn btn-ghost">Zur Startseite</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer muted">
+    Inoffizielles Übungs-Tool · Fragen aus dem kantonalen Grundkenntnistest (Kanton Zürich).
+  </footer>
+
+  <script src="questions.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

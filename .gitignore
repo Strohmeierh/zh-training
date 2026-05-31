@@ -1,0 +1,11 @@
+# Lokale Editor-/Tool-Konfiguration (maschinenspezifische Pfade)
+.claude/
+
+# Zwischenprodukte der Fragen-Extraktion (werden aus dem PDF neu erzeugt)
+tools/questions_raw.json
+tools/questions_clean.json
+
+# Diverses
+*.log
+.DS_Store
+Thumbs.db
