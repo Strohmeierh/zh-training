@@ -59,8 +59,37 @@
       </div>
 
       <div class="card">
-        <h2>Daten</h2>
-        <p class="muted">Dein Fortschritt wird nur lokal in diesem Browser gespeichert.</p>
+        <h2>Daten &amp; Geräte-Abgleich</h2>
+        <p class="muted">Dein Fortschritt wird lokal im Browser gespeichert – also pro Gerät getrennt. Für den Abgleich zwischen Laptop und iPhone exportierst du ihn hier und importierst ihn auf dem anderen Gerät.</p>
+
+        <div class="data-actions">
+          <button id="btn-export" class="btn btn-secondary">Fortschritt exportieren</button>
+          <button id="btn-import-toggle" class="btn btn-secondary">Fortschritt importieren</button>
+        </div>
+
+        <div id="export-panel" class="io-panel hidden">
+          <label class="field-label" for="export-code">Fortschritts-Code – kopieren und auf dem anderen Gerät einfügen</label>
+          <textarea id="export-code" class="io-text" rows="4" readonly></textarea>
+          <div class="data-actions">
+            <button id="btn-copy-code" class="btn btn-secondary">Code kopieren</button>
+            <button id="btn-download" class="btn btn-secondary">Als Datei speichern</button>
+          </div>
+          <p id="export-msg" class="muted"></p>
+        </div>
+
+        <div id="import-panel" class="io-panel hidden">
+          <label class="field-label" for="import-code">Code hier einfügen …</label>
+          <textarea id="import-code" class="io-text" rows="4" placeholder="Exportierten Code vom anderen Gerät einfügen"></textarea>
+          <label class="field-label" for="import-file">… oder eine zuvor gespeicherte Datei wählen</label>
+          <input id="import-file" type="file" accept=".json,application/json" class="io-file">
+          <div class="data-actions">
+            <button id="btn-import-merge" class="btn btn-primary">Zusammenführen</button>
+            <button id="btn-import-replace" class="btn btn-secondary">Ersetzen</button>
+          </div>
+          <p id="import-msg" class="muted"></p>
+        </div>
+
+        <hr class="divider">
         <button id="btn-reset" class="btn btn-danger">Fortschritt zurücksetzen</button>
       </div>
     </section>

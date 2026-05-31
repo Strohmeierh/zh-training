@@ -302,6 +302,103 @@
     });
   }
 
+  // ---------- Export / Import (Geräte-Abgleich) ----------
+  function exportPayload() {
+    return { app: 'zh-grundkenntnistest', v: 1, exportedAt: new Date().toISOString(), state: state };
+  }
+  // UTF-8-sicheres Base64
+  function toCode(obj) {
+    return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+  }
+  // Akzeptiert einen Base64-Code ODER rohes JSON; liefert {version, stats}
+  function parseImport(text) {
+    text = (text || '').trim();
+    if (!text) throw new Error('Kein Code eingegeben und keine Datei gewählt.');
+    var json = null;
+    try { json = decodeURIComponent(escape(atob(text.replace(/\s+/g, '')))); JSON.parse(json); }
+    catch (e) { json = null; }
+    if (!json) json = text; // dann als rohes JSON versuchen
+    var obj;
+    try { obj = JSON.parse(json); } catch (e) { throw new Error('Code/Datei nicht lesbar.'); }
+    var st = (obj && obj.stats) ? obj : (obj && obj.state && obj.state.stats ? obj.state : null);
+    if (!st || typeof st.stats !== 'object') throw new Error('Keine gültigen Fortschrittsdaten gefunden.');
+    return st;
+  }
+  function applyImport(incoming, mode) {
+    if (mode === 'replace') {
+      state = { version: 1, stats: incoming.stats };
+    } else { // zusammenführen: pro Frage gewinnt der zuletzt bearbeitete Stand
+      var ids = {}, merged = {};
+      Object.keys(state.stats).forEach(function (k) { ids[k] = 1; });
+      Object.keys(incoming.stats).forEach(function (k) { ids[k] = 1; });
+      Object.keys(ids).forEach(function (id) {
+        var a = state.stats[id], b = incoming.stats[id];
+        if (!a) { merged[id] = b; return; }
+        if (!b) { merged[id] = a; return; }
+        var newer = (b.zuletzt || 0) >= (a.zuletzt || 0) ? b : a;
+        merged[id] = {
+          gesehen: Math.max(a.gesehen || 0, b.gesehen || 0),
+          richtig: Math.max(a.richtig || 0, b.richtig || 0),
+          falsch: Math.max(a.falsch || 0, b.falsch || 0),
+          markiert: !!(a.markiert || b.markiert),
+          letztesErgebnis: newer.letztesErgebnis,
+          zuletzt: Math.max(a.zuletzt || 0, b.zuletzt || 0)
+        };
+      });
+      state = { version: 1, stats: merged };
+    }
+    saveState();
+    updateOverview();
+    updatePoolInfo();
+  }
+
+  function doExport() {
+    $('#export-code').value = toCode(exportPayload());
+    $('#export-panel').classList.remove('hidden');
+    $('#import-panel').classList.add('hidden');
+    var n = Object.keys(state.stats).length;
+    $('#export-msg').textContent = n + ' Fragen mit Fortschritt im Export enthalten.';
+  }
+  function doDownload() {
+    var blob = new Blob([JSON.stringify(exportPayload(), null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'zh-fortschritt-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    $('#export-msg').textContent = 'Datei gespeichert. Übertrage sie auf das andere Gerät und importiere sie dort.';
+  }
+  function doCopyCode() {
+    var ta = $('#export-code');
+    ta.focus(); ta.select();
+    var ok = function () { $('#export-msg').textContent = 'Code kopiert – auf dem anderen Gerät unter „Fortschritt importieren" einfügen.'; };
+    var fallback = function () { try { document.execCommand('copy'); ok(); } catch (e) { $('#export-msg').textContent = 'Bitte den Code manuell markieren und kopieren.'; } };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(ok, fallback);
+    } else { fallback(); }
+  }
+  function doImport(mode) {
+    var run = function (text) {
+      var st;
+      try { st = parseImport(text); }
+      catch (e) { $('#import-msg').textContent = '⚠ ' + e.message; return; }
+      var n = Object.keys(st.stats).length;
+      applyImport(st, mode);
+      $('#import-msg').textContent = '✓ ' + n + ' Fragen importiert (' + (mode === 'replace' ? 'ersetzt' : 'zusammengeführt') + '). Siehe „Dein Fortschritt" oben.';
+      $('#import-code').value = ''; $('#import-file').value = '';
+    };
+    var f = $('#import-file').files[0];
+    if (f) {
+      var r = new FileReader();
+      r.onload = function () { run(r.result); };
+      r.onerror = function () { $('#import-msg').textContent = '⚠ Datei konnte nicht gelesen werden.'; };
+      r.readAsText(f);
+    } else {
+      run($('#import-code').value);
+    }
+  }
+
   // ---------- Event-Bindings ----------
   function bindStartControls() {
     $('#mode-buttons').addEventListener('click', function (e) {
@@ -330,6 +427,21 @@
         updateOverview();
         updatePoolInfo();
       }
+    });
+  }
+
+  function bindDataControls() {
+    $('#btn-export').addEventListener('click', doExport);
+    $('#btn-download').addEventListener('click', doDownload);
+    $('#btn-copy-code').addEventListener('click', doCopyCode);
+    $('#btn-import-toggle').addEventListener('click', function () {
+      $('#import-panel').classList.toggle('hidden');
+      $('#export-panel').classList.add('hidden');
+      $('#import-msg').textContent = '';
+    });
+    $('#btn-import-merge').addEventListener('click', function () { doImport('merge'); });
+    $('#btn-import-replace').addEventListener('click', function () {
+      if (confirm('Den lokalen Fortschritt durch den importierten ersetzen?')) doImport('replace');
     });
   }
 
@@ -362,6 +474,7 @@
     initThemeSelect();
     bindStartControls();
     bindQuizControls();
+    bindDataControls();
     updateOverview();
     updatePoolInfo();
     show('#screen-start');

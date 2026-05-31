@@ -135,6 +135,27 @@ body {
 .btn-ghost { background: transparent; color: var(--blue); }
 .btn-danger { background: var(--red-bg); color: var(--red); }
 .btn-danger:hover { background: #f9d9da; }
+.btn-secondary { background: #eef3f8; color: var(--blue-dark); }
+.btn-secondary:hover { background: #e1ebf5; }
+
+/* ---- Daten: Export / Import ---- */
+.data-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.data-actions .btn { flex: 1 1 auto; }
+.io-panel { margin-top: 14px; padding: 14px; background: var(--bg); border-radius: 10px; }
+.io-text {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: .8rem;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  resize: vertical;
+  background: #fff;
+  color: var(--text);
+}
+.io-file { display: block; margin-top: 4px; font-size: .9rem; max-width: 100%; }
+.divider { border: none; border-top: 1px solid var(--border); margin: 18px 0 14px; }
 
 /* ---- Quiz ---- */
 .quiz-head {
