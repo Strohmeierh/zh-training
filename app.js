@@ -512,6 +512,28 @@
     return fetchWithTimeout(syncUrl() + '&force=1', { method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: body }, 8000)
       .then(function (r) { return r.ok; }).catch(function () { return false; });
   }
+  // Nur LADEN + zusammenführen, NICHT hochladen. Für regelmässiges Aktualisieren des
+  // gerade nicht aktiven Geräts – Lesen ist günstig, so vermeiden wir Schreib-Limits.
+  function syncPullOnly() {
+    if (!syncCfg || syncInFlight) return;
+    syncInFlight = true;
+    syncPull().then(function (remote) {
+      if (remote && remote.stats) {
+        state = { version: 1, stats: mergeStats(state.stats, remote.stats) };
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { }
+        updateOverview(); updatePoolInfo();
+        lastSyncAt = Date.now();
+        setSyncStatus('Synchronisiert ✓', 'ok');
+      } else if (remote === null) {
+        setSyncStatus('Offline – lokal gespeichert', 'warn');
+      }
+    }).catch(function () {
+      setSyncStatus('Offline – lokal gespeichert', 'warn');
+    }).then(function () {
+      syncInFlight = false;
+      if (syncQueued) { syncQueued = false; setTimeout(syncNow, 50); }
+    });
+  }
   function scheduleSyncPush() {
     if (!syncCfg) return;
     clearTimeout(pushTimer);
@@ -626,6 +648,11 @@
     bindSyncControls();
     renderSyncUI();
     if (syncCfg) syncNow();    // Erst-Abgleich beim Laden
+    // Regelmässig (nur LESEN) aktualisieren, damit auch das nicht-aktive Gerät den
+    // letzten Stand des anderen zeigt – ohne Schreibvorgänge zu verbrauchen.
+    setInterval(function () {
+      if (syncCfg && document.visibilityState === 'visible') syncPullOnly();
+    }, 15000);
   }
 
   // ---------- Event-Bindings ----------
@@ -702,6 +729,7 @@
     updateOverview();
     updatePoolInfo();
     show('#screen-start');
+    if (syncCfg) syncPullOnly();   // Übersicht beim Zurückkehren auffrischen (nur Lesen)
   }
 
   // ---------- Init ----------
